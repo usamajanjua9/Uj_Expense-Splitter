@@ -45,7 +45,7 @@ with tab1:
         "You can add participants, add expenses, and view balances. "
         "It works on both mobile and desktop!"
     )  # Description of the app
-    st.image("https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif", use_column_width=True)  # Display an image (placeholder)
+    st.image("https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif", use_container_width=True)  # Display an image (placeholder)
 
 # ---- PARTICIPANTS TAB ----
 with tab2:
