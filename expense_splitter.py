@@ -2,9 +2,10 @@ import streamlit as st  # Import Streamlit for creating the web app
 import pandas as pd  # Import Pandas for handling tabular expense data
 import os  # Import OS module to check if a file exists
 import io  # Import io module for in-memory file operations
+import streamlit as st
 
 # Set Page Configuration (Optimized for Mobile View)
-st.set_page_config(page_title="💰 Expense Splitter", layout="wide")
+st.set_page_config(page_title="💰 Expense Splitter", page_icon="📱", layout="wide", initial_sidebar_state="collapsed")
 
 # File name for saving and loading expenses data
 file_name = "expenses.csv"
@@ -159,3 +160,16 @@ with tab4:
     if st.button("🔄 Reset"):
         reset_expenses()  # Call reset function
         st.warning("🔄 All data has been reset!")  # Show reset confirmation
+
+
+
+
+
+# Hide Streamlit's extra UI elements
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
