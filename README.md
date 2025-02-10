@@ -92,7 +92,7 @@ To **run** this app on your local machine:
 
 ## 📜 License
 
-License © 2025 [Dr. Usama Arshad]
+License © 2025 [Dr. Usama Arshad](https://www.linkedin.com/in/usamajanjua9/)!**
 
 ---
 
