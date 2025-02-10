@@ -101,11 +101,3 @@ License © 2025 [Dr. Usama Arshad](https://www.linkedin.com/in/usamajanjua9/)!**
 
 ---
 
-### **Key Features in This README**
-✅ **Visually Engaging with Emojis**  
-✅ **Step-by-Step Instructions for Setup**  
-✅ **User Guide with Examples**  
-✅ **Color-coded Summary Explanation**  
-✅ **Export & Reset Features Clearly Explained**  
-
-This **README** ensures that users can **easily install, use, and contribute** to the project. 🎯🚀
