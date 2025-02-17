@@ -1,0 +1,10 @@
+credentials:
+  usernames: {}
+
+cookie:
+  expiry_days: 30
+  key: "some_random_key"
+  name: "expense_splitter_auth"
+
+preauthorized:
+  emails: []
