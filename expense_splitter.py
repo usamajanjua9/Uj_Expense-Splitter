@@ -71,10 +71,10 @@ tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 with tab1:
     st.header("🔑 Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
 
-    if st.button("Login"):
+    if st.button("Login", key="login_button"):
         user_name = authenticate_user(username, password)
         if user_name:
             st.session_state["authenticated"] = True
@@ -88,13 +88,13 @@ with tab1:
 # --------- SIGN-UP ---------
 with tab2:
     st.header("🆕 Sign Up")
-    new_name = st.text_input("Full Name")
-    new_email = st.text_input("Email")
-    new_username = st.text_input("Choose a Username")
-    new_password = st.text_input("Password", type="password")
-    confirm_password = st.text_input("Confirm Password", type="password")
+    new_name = st.text_input("Full Name", key="signup_name")
+    new_email = st.text_input("Email", key="signup_email")
+    new_username = st.text_input("Choose a Username", key="signup_username")
+    new_password = st.text_input("Password", type="password", key="signup_password")
+    confirm_password = st.text_input("Confirm Password", type="password", key="signup_confirm_password")
 
-    if st.button("🔑 Register"):
+    if st.button("🔑 Register", key="signup_button"):
         if new_password != confirm_password:
             st.error("⚠ Passwords do not match!")
         else:
@@ -103,6 +103,7 @@ with tab2:
                 st.success(msg)
             else:
                 st.error(msg)
+
 
 # -------------------------------------------
 # 📌 Expense Splitter App UI (Protected Area)
