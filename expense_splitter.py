@@ -1,164 +1,210 @@
-import streamlit as st  # Import Streamlit for creating the web app
-import pandas as pd  # Import Pandas for handling tabular expense data
-import os  # Import OS module to check if a file exists
-import io  # Import io module for in-memory file operations
+# 📌 Import required libraries
+import streamlit as st  # Streamlit for the web interface
+import streamlit_authenticator as stauth  # User authentication
+import pandas as pd  # Pandas for data handling
+import os  # OS module for file operations
+import yaml  # YAML for storing user credentials
+from yaml.loader import SafeLoader  # Safe loading of YAML files
+import bcrypt  # For hashing passwords securely
 
-# Set Page Configuration (Optimized for Mobile View)
-st.set_page_config(page_title="💰 Expense Splitter", page_icon="📱", layout="wide", initial_sidebar_state="collapsed")
+# 📌 Function to load authentication data from config.yaml
+def load_config():
+    with open("config.yaml", "r") as file:
+        return yaml.safe_load(file)
 
-# Hide Streamlit's extra UI elements
-st.markdown("""
-    <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
+# 📌 Function to save updated authentication data
+def save_config(config):
+    with open("config.yaml", "w") as file:
+        yaml.dump(config, file)
 
-# File name for saving and loading expenses data
-file_name = "expenses.csv"
+# 📌 Load authentication configuration from YAML file
+config = load_config()
 
-# Function to load existing expenses from CSV file
-def load_expenses():
-    if os.path.exists(file_name):  # Check if the file exists
-        df = pd.read_csv(file_name)  # Read the CSV file into a Pandas DataFrame
-        return dict(zip(df["Participant"], df["Amount"]))  # Convert DataFrame to dictionary {name: amount}
-    return {}  # Return an empty dictionary if the file doesn't exist
+# 📌 Initialize authentication system
+authenticator = stauth.Authenticate(
+    config["credentials"],  # User credentials from config.yaml
+    config["cookie"]["name"],  # Cookie name for session storage
+    config["cookie"]["key"],  # Secret key for cookies
+    config["cookie"]["expiry_days"],  # Cookie expiration time
+)
 
-# Function to save expenses data into a CSV file
-def save_expenses(expenses):
-    df = pd.DataFrame(expenses.items(), columns=["Participant", "Amount"])  # Convert dictionary to DataFrame
-    df.to_csv(file_name, index=False)  # Save the DataFrame as a CSV file (without row index)
+# 📌 Create navigation tabs for Login and Sign-Up
+tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
-# Function to reset all expenses and participants
-def reset_expenses():
-    global expenses  # Use global variable to modify
-    expenses = {}  # Clear the expenses dictionary
-    if os.path.exists(file_name):  # Check if the file exists
-        os.remove(file_name)  # Delete the CSV file to remove saved data
-    st.session_state.clear()  # Clear Streamlit's session state for UI refresh
-
-# Load expenses at the start of the app
-expenses = load_expenses()
-
-# Display the app title
-st.title("💰 Expense Splitter (Mobile Friendly)")
-
-# Create navigation tabs for different sections of the app
-tab1, tab2, tab3, tab4 = st.tabs(["🏠 Home", "👥 Participants", "💵 Add Expense", "📊 Summary"])
-
-# ---- HOME TAB ----
+# ------------------------- LOGIN TAB -------------------------
 with tab1:
-    st.header("🏠 Welcome to the Expense Splitter App")
-    st.write("This app helps you split expenses among friends fairly. "
-             "You can add participants, add expenses, and view balances. "
-             "It works on both mobile and desktop!")
-    st.image("https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif", use_container_width=True)
+    # 📌 Display login widget
+    name, authentication_status, username = authenticator.login("Login", "main")
 
-# ---- PARTICIPANTS TAB ----
-with tab2:
-    st.header("👥 Manage Participants")
-    new_participant = st.text_input("Enter participant name")
+    # 📌 If authentication is successful
+    if authentication_status:
+        st.sidebar.title(f"Welcome, {name}")  # Show user name in sidebar
+        authenticator.logout("Logout", "sidebar")  # Add a logout button
 
-    col1, col2 = st.columns(2)
+        # 📌 Each user gets a separate file to store their expenses
+        file_name = f"expenses_{username}.csv"
 
-    # Add Participant Button
-    if col1.button("➕ Add"):
-        if new_participant and new_participant not in expenses:
-            expenses[new_participant] = 0
-            save_expenses(expenses)
-            st.success(f"✅ {new_participant} added!")
-        else:
-            st.warning("⚠ Enter a unique name!")
+        # 📌 Function to load expenses
+        def load_expenses():
+            if os.path.exists(file_name):  # Check if user file exists
+                df = pd.read_csv(file_name)  # Read CSV file into DataFrame
+                return dict(zip(df["Participant"], df["Amount"]))  # Convert to dictionary
+            return {}  # Return empty dictionary if file doesn't exist
 
-    # Remove Participant Button
-    if col2.button("❌ Remove"):
-        if new_participant in expenses:
-            del expenses[new_participant]
-            save_expenses(expenses)
-            st.error(f"❌ {new_participant} removed!")
-        else:
-            st.warning("⚠ Participant not found!")
+        # 📌 Function to save expenses
+        def save_expenses(expenses):
+            df = pd.DataFrame(expenses.items(), columns=["Participant", "Amount"])
+            df.to_csv(file_name, index=False)  # Save to user's CSV file
 
-    # Display current participants
-    st.write("### Current Participants:")
-    if expenses:
-        st.write(list(expenses.keys()))
-    else:
-        st.info("No participants added yet.")
+        # 📌 Function to reset expenses (clear data)
+        def reset_expenses():
+            global expenses
+            expenses = {}  # Reset dictionary
+            if os.path.exists(file_name):  # Check if file exists
+                os.remove(file_name)  # Delete the file
+            st.session_state.clear()  # Clear session state
 
-# ---- EXPENSES TAB ----
-with tab3:
-    st.header("💵 Add Expenses")
+        # 📌 Load user-specific expenses
+        expenses = load_expenses()
 
-    if expenses:
-        payer = st.selectbox("Who paid?", list(expenses.keys()))
-        amount = st.number_input("Amount", min_value=0.0, format="%.2f")
-        description = st.text_input("Description")
-        split_type = st.radio("Split Type", ["Equal", "Unequal"])
+        # ------------------------- EXPENSE SPLITTER APP UI -------------------------
 
-        if split_type == "Unequal":
-            split_values = st.text_input("Enter shares (e.g., 50,30,20)")
+        # 📌 App title
+        st.title("💰 Expense Splitter (Private Data)")
 
-        if st.button("💰 Add Expense"):
-            if amount > 0:
-                balances = {person: 0 for person in expenses}  # Initialize balance tracking
+        # 📌 Create navigation tabs for different sections
+        tab_home, tab_participants, tab_add_expense, tab_summary = st.tabs(
+            ["🏠 Home", "👥 Participants", "💵 Add Expense", "📊 Summary"]
+        )
 
-                if split_type == "Equal":
-                    share_per_person = amount / len(expenses)
-                    for person in expenses:
-                        balances[person] -= share_per_person
-                    balances[payer] += amount  # Payer gets reimbursed
+        # ---- HOME TAB ----
+        with tab_home:
+            st.header("🏠 Welcome to the Expense Splitter App")
+            st.write(
+                "This app helps you split expenses among friends fairly. "
+                "Your data is private and secured with authentication."
+            )
+            st.image(
+                "https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif",
+                use_container_width=True,
+            )
 
-                else:  # Unequal split
-                    try:
-                        shares = list(map(float, split_values.split(",")))
-                        if len(shares) == len(expenses) and sum(shares) == 100:
-                            for i, person in enumerate(expenses):
-                                balances[person] -= (amount * (shares[i] / 100))
-                            balances[payer] += amount  # Payer gets reimbursed
+        # ---- PARTICIPANTS TAB ----
+        with tab_participants:
+            st.header("👥 Manage Participants")
+            new_participant = st.text_input("Enter participant name")
+
+            col1, col2 = st.columns(2)
+
+            # Add Participant Button
+            if col1.button("➕ Add"):
+                if new_participant and new_participant not in expenses:
+                    expenses[new_participant] = 0
+                    save_expenses(expenses)
+                    st.success(f"✅ {new_participant} added!")
+                else:
+                    st.warning("⚠ Enter a unique name!")
+
+            # Remove Participant Button
+            if col2.button("❌ Remove"):
+                if new_participant in expenses:
+                    del expenses[new_participant]
+                    save_expenses(expenses)
+                    st.error(f"❌ {new_participant} removed!")
+                else:
+                    st.warning("⚠ Participant not found!")
+
+            # Display current participants
+            st.write("### Current Participants:")
+            if expenses:
+                st.write(list(expenses.keys()))
+            else:
+                st.info("No participants added yet.")
+
+        # ---- EXPENSES TAB ----
+        with tab_add_expense:
+            st.header("💵 Add Expenses")
+
+            if expenses:
+                payer = st.selectbox("Who paid?", list(expenses.keys()))
+                amount = st.number_input("Amount", min_value=0.0, format="%.2f")
+                description = st.text_input("Description")
+                split_type = st.radio("Split Type", ["Equal", "Unequal"])
+
+                if split_type == "Unequal":
+                    split_values = st.text_input("Enter shares (e.g., 50,30,20)")
+
+                if st.button("💰 Add Expense"):
+                    if amount > 0:
+                        balances = {person: 0 for person in expenses}
+
+                        if split_type == "Equal":
+                            share_per_person = amount / len(expenses)
+                            for person in expenses:
+                                balances[person] -= share_per_person
+                            balances[payer] += amount
+
                         else:
-                            raise ValueError
-                    except:
-                        st.error("⚠ Invalid shares. Must sum to 100.")
-                        st.stop()
+                            try:
+                                shares = list(map(float, split_values.split(",")))
+                                if len(shares) == len(expenses) and sum(shares) == 100:
+                                    for i, person in enumerate(expenses):
+                                        balances[person] -= (amount * (shares[i] / 100))
+                                    balances[payer] += amount
+                                else:
+                                    raise ValueError
+                            except:
+                                st.error("⚠ Invalid shares. Must sum to 100.")
+                                st.stop()
 
-                # Update expenses dictionary
-                for person in balances:
-                    expenses[person] += balances[person]
+                        for person in balances:
+                            expenses[person] += balances[person]
 
-                save_expenses(expenses)
-                st.success(f"💰 {payer} paid {amount:.2f} for {description}")
-            else:
-                st.warning("⚠ Enter a valid amount!")
+                        save_expenses(expenses)
+                        st.success(f"💰 {payer} paid {amount:.2f} for {description}")
+                    else:
+                        st.warning("⚠ Enter a valid amount!")
 
-# ---- SUMMARY TAB ----
-with tab4:
-    st.header("📊 Expense Summary")
+        # ---- SUMMARY TAB ----
+        with tab_summary:
+            st.header("📊 Expense Summary")
 
-    if expenses:
-        total_paid = {person: expenses[person] for person in expenses}
-        total_spent = sum(expenses.values())
-        fair_share = total_spent / len(expenses)
+            if expenses:
+                total_paid = {person: expenses[person] for person in expenses}
+                total_spent = sum(expenses.values())
+                fair_share = total_spent / len(expenses)
 
-        balances = {person: total_paid[person] - fair_share for person in expenses}
+                balances = {person: total_paid[person] - fair_share for person in expenses}
 
-        for person, balance in balances.items():
-            if balance > 0:
-                st.success(f"✅ {person} should receive {balance:.2f}")
-            elif balance < 0:
-                st.error(f"❌ {person} owes {-balance:.2f}")
-            else:
-                st.info(f"✔ {person} is settled.")
+                for person, balance in balances.items():
+                    if balance > 0:
+                        st.success(f"✅ {person} should receive {balance:.2f}")
+                    elif balance < 0:
+                        st.error(f"❌ {person} owes {-balance:.2f}")
+                    else:
+                        st.info(f"✔ {person} is settled.")
 
-    if st.button("📂 Export to CSV"):
-        save_expenses(expenses)
-        df = pd.DataFrame(expenses.items(), columns=["Participant", "Amount"])
-        buffer = io.StringIO()
-        df.to_csv(buffer, index=False)
-        buffer.seek(0)
-        st.download_button(label="Download CSV", data=buffer.getvalue(), file_name="expenses.csv", mime="text/csv")
+            if st.button("🔄 Reset"):
+                reset_expenses()
+                st.warning("🔄 All data has been reset!")
 
-    if st.button("🔄 Reset"):
-        reset_expenses()
-        st.warning("🔄 All data has been reset!")
+# ------------------------- SIGN-UP TAB -------------------------
+with tab2:
+    st.header("🆕 Sign Up")
+
+    new_name = st.text_input("Full Name")
+    new_email = st.text_input("Email")
+    new_username = st.text_input("Choose a Username")
+    new_password = st.text_input("Password", type="password")
+    confirm_password = st.text_input("Confirm Password", type="password")
+
+    if st.button("🔑 Register"):
+        if new_username in config["credentials"]["usernames"]:
+            st.error("⚠ Username already exists!")
+        elif new_password != confirm_password:
+            st.error("⚠ Passwords do not match!")
+        else:
+            hashed_password = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            config["credentials"]["usernames"][new_username] = {"email": new_email, "name": new_name, "password": hashed_password}
+            save_config(config)
+            st.success(f"✅ {new_name} registered successfully! Please log in.")
