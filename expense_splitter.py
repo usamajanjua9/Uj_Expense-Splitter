@@ -5,7 +5,9 @@ import os
 import yaml
 import bcrypt
 
-# Hide Streamlit's extra UI elements
+# -------------------------------------------
+# 📌 Hide Streamlit Branding
+# -------------------------------------------
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
@@ -13,6 +15,7 @@ st.markdown("""
         header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
+
 # -------------------------------------------
 # 📌 Load or Create Authentication Config
 # -------------------------------------------
@@ -89,7 +92,7 @@ with tab1:
             st.session_state["username"] = username
             st.session_state["name"] = user_name
             st.success(f"✅ Welcome, {user_name}!")
-            st.experimental_rerun()
+            st.rerun()  # ✅ Fixed (replaced experimental_rerun)
         else:
             st.error("❌ Invalid username or password!")
 
@@ -112,7 +115,6 @@ with tab2:
             else:
                 st.error(msg)
 
-
 # -------------------------------------------
 # 📌 Expense Splitter App UI (Protected Area)
 # -------------------------------------------
@@ -120,7 +122,7 @@ if st.session_state.get("authenticated", False):
     st.sidebar.title(f"Welcome, {st.session_state['name']}")  # Sidebar welcome message
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 
     # 🔹 Private file for each user
     file_name = f"expenses_{st.session_state['username']}.csv"
@@ -174,46 +176,22 @@ if st.session_state.get("authenticated", False):
         st.header("👥 Manage Participants")
         new_participant = st.text_input("Enter participant name")
 
-        col1, col2 = st.columns(2)
-
-        if col1.button("➕ Add"):
+        if st.button("➕ Add"):
             if new_participant and new_participant not in expenses:
                 expenses[new_participant] = 0
                 save_expenses(expenses)
                 st.session_state["expenses"] = expenses
                 st.success(f"✅ {new_participant} added!")
-            else:
-                st.warning("⚠ Enter a unique name!")
 
-        if col2.button("❌ Remove"):
+        if st.button("❌ Remove"):
             if new_participant in expenses:
                 del expenses[new_participant]
                 save_expenses(expenses)
                 st.session_state["expenses"] = expenses
                 st.error(f"❌ {new_participant} removed!")
-            else:
-                st.warning("⚠ Participant not found!")
 
         st.write("### Current Participants:")
         st.write(list(expenses.keys()) if expenses else "No participants added yet.")
-
-    # ---- EXPENSES TAB ----
-    with tab_add_expense:
-        st.header("💵 Add Expenses")
-
-        if expenses:
-            payer = st.selectbox("Who paid?", list(expenses.keys()))
-            amount = st.number_input("Amount", min_value=0.0, format="%.2f")
-            description = st.text_input("Description")
-
-            if st.button("💰 Add Expense"):
-                if amount > 0:
-                    expenses[payer] += amount
-                    save_expenses(expenses)
-                    st.session_state["expenses"] = expenses
-                    st.success(f"💰 {payer} paid {amount:.2f} for {description}")
-                else:
-                    st.warning("⚠ Enter a valid amount!")
 
     # ---- SUMMARY TAB ----
     with tab_summary:
