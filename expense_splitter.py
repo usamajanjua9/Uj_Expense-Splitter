@@ -1,93 +1,118 @@
 # 📌 Import required libraries
-import streamlit as st  # Streamlit for the web interface
-import streamlit_authenticator as stauth  # User authentication
-import pandas as pd  # Pandas for data handling
-import os  # OS module for file operations
-import yaml  # YAML for storing user credentials
-from yaml.loader import SafeLoader  # Safe loading of YAML files
-import bcrypt  # For hashing passwords securely
+import streamlit as st
+import streamlit_authenticator as stauth  # For user authentication
+import pandas as pd
+import os
+import yaml
+from yaml.loader import SafeLoader
+import bcrypt  # Secure password hashing
 
-# 📌 Function to load authentication data from config.yaml
+# -------------------------------------------
+# 📌 Load or Create Authentication Config
+# -------------------------------------------
+
+CONFIG_FILE = "config.yaml"
+
+# 🔹 Function to load authentication config, create default if missing
 def load_config():
-    with open("config.yaml", "r") as file:
+    if not os.path.exists(CONFIG_FILE):
+        default_config = {
+            "credentials": {
+                "usernames": {
+                    "admin": {
+                        "name": "Admin",
+                        "email": "admin@example.com",
+                        "password": bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode(),
+                    }
+                }
+            },
+            "cookie": {
+                "expiry_days": 30,
+                "key": "some_random_key",
+                "name": "expense_splitter_auth",
+            },
+            "preauthorized": {"emails": ["admin@example.com"]},
+        }
+        with open(CONFIG_FILE, "w") as file:
+            yaml.dump(default_config, file)
+
+    with open(CONFIG_FILE, "r") as file:
         return yaml.safe_load(file)
 
-# 📌 Function to save updated authentication data
+# 🔹 Function to save updated config
 def save_config(config):
-    with open("config.yaml", "w") as file:
+    with open(CONFIG_FILE, "w") as file:
         yaml.dump(config, file)
 
-# 📌 Load authentication configuration from YAML file
+# Load the config file
 config = load_config()
 
-# 📌 Initialize authentication system
+# -------------------------------------------
+# 📌 Authentication System
+# -------------------------------------------
+
 authenticator = stauth.Authenticate(
-    config["credentials"],  # User credentials from config.yaml
-    config["cookie"]["name"],  # Cookie name for session storage
-    config["cookie"]["key"],  # Secret key for cookies
-    config["cookie"]["expiry_days"],  # Cookie expiration time
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"],
 )
 
-# 📌 Create navigation tabs for Login and Sign-Up
+# -------------------------------------------
+# 📌 Authentication UI (Login & Sign-Up)
+# -------------------------------------------
+
 tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
-# ------------------------- LOGIN TAB -------------------------
+# --------- LOGIN ---------
 with tab1:
-    # 📌 Display login widget
     name, authentication_status, username = authenticator.login("Login", location="main")
 
-    # 📌 If authentication is successful
     if authentication_status:
-        st.sidebar.title(f"Welcome, {name}")  # Show user name in sidebar
-        authenticator.logout("Logout", "sidebar")  # Add a logout button
+        st.sidebar.title(f"Welcome, {name}")  # Sidebar welcome message
+        authenticator.logout("Logout", "sidebar")  # Logout button
 
-        # 📌 Each user gets a separate file to store their expenses
+        # 🔹 Private file for each user
         file_name = f"expenses_{username}.csv"
 
-        # 📌 Function to load expenses
+        # 🔹 Function to load expenses
         def load_expenses():
-            if os.path.exists(file_name):  # Check if user file exists
-                df = pd.read_csv(file_name)  # Read CSV file into DataFrame
-                return dict(zip(df["Participant"], df["Amount"]))  # Convert to dictionary
-            return {}  # Return empty dictionary if file doesn't exist
+            if os.path.exists(file_name):
+                df = pd.read_csv(file_name)
+                return dict(zip(df["Participant"], df["Amount"]))
+            return {}
 
-        # 📌 Function to save expenses
+        # 🔹 Function to save expenses
         def save_expenses(expenses):
             df = pd.DataFrame(expenses.items(), columns=["Participant", "Amount"])
-            df.to_csv(file_name, index=False)  # Save to user's CSV file
+            df.to_csv(file_name, index=False)
 
-        # 📌 Function to reset expenses (clear data)
+        # 🔹 Function to reset expenses
         def reset_expenses():
             global expenses
-            expenses = {}  # Reset dictionary
-            if os.path.exists(file_name):  # Check if file exists
-                os.remove(file_name)  # Delete the file
-            st.session_state.clear()  # Clear session state
+            expenses = {}
+            if os.path.exists(file_name):
+                os.remove(file_name)
+            st.session_state.clear()
 
-        # 📌 Load user-specific expenses
         expenses = load_expenses()
 
-        # ------------------------- EXPENSE SPLITTER APP UI -------------------------
+        # -------------------------------------------
+        # 📌 Expense Splitter App UI
+        # -------------------------------------------
 
-        # 📌 App title
         st.title("💰 Expense Splitter (Private Data)")
 
-        # 📌 Create navigation tabs for different sections
+        # 🔹 App Navigation Tabs
         tab_home, tab_participants, tab_add_expense, tab_summary = st.tabs(
             ["🏠 Home", "👥 Participants", "💵 Add Expense", "📊 Summary"]
         )
 
         # ---- HOME TAB ----
         with tab_home:
-            st.header("🏠 Welcome to the Expense Splitter App")
-            st.write(
-                "This app helps you split expenses among friends fairly. "
-                "Your data is private and secured with authentication."
-            )
-            st.image(
-                "https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif",
-                use_container_width=True,
-            )
+            st.header("🏠 Welcome to Expense Splitter")
+            st.write("Split expenses fairly with friends. Your data is private and secure.")
+            st.image("https://i.pinimg.com/originals/55/de/06/55de068a005a71c0720cb64c3c6be828.gif", use_container_width=True)
 
         # ---- PARTICIPANTS TAB ----
         with tab_participants:
@@ -96,7 +121,6 @@ with tab1:
 
             col1, col2 = st.columns(2)
 
-            # Add Participant Button
             if col1.button("➕ Add"):
                 if new_participant and new_participant not in expenses:
                     expenses[new_participant] = 0
@@ -105,7 +129,6 @@ with tab1:
                 else:
                     st.warning("⚠ Enter a unique name!")
 
-            # Remove Participant Button
             if col2.button("❌ Remove"):
                 if new_participant in expenses:
                     del expenses[new_participant]
@@ -114,12 +137,8 @@ with tab1:
                 else:
                     st.warning("⚠ Participant not found!")
 
-            # Display current participants
             st.write("### Current Participants:")
-            if expenses:
-                st.write(list(expenses.keys()))
-            else:
-                st.info("No participants added yet.")
+            st.write(list(expenses.keys()) if expenses else "No participants added yet.")
 
         # ---- EXPENSES TAB ----
         with tab_add_expense:
@@ -177,26 +196,24 @@ with tab1:
                 balances = {person: total_paid[person] - fair_share for person in expenses}
 
                 for person, balance in balances.items():
-                    if balance > 0:
-                        st.success(f"✅ {person} should receive {balance:.2f}")
-                    elif balance < 0:
-                        st.error(f"❌ {person} owes {-balance:.2f}")
-                    else:
-                        st.info(f"✔ {person} is settled.")
+                    st.success(f"✅ {person} should receive {balance:.2f}") if balance > 0 else (
+                        st.error(f"❌ {person} owes {-balance:.2f}") if balance < 0 else st.info(f"✔ {person} is settled.")
+                    )
 
             if st.button("🔄 Reset"):
                 reset_expenses()
                 st.warning("🔄 All data has been reset!")
 
-# ------------------------- SIGN-UP TAB -------------------------
+# --------- SIGN-UP ---------
 with tab2:
     st.header("🆕 Sign Up")
-
-    new_name = st.text_input("Full Name")
-    new_email = st.text_input("Email")
-    new_username = st.text_input("Choose a Username")
-    new_password = st.text_input("Password", type="password")
-    confirm_password = st.text_input("Confirm Password", type="password")
+    new_name, new_email, new_username, new_password, confirm_password = (
+        st.text_input("Full Name"),
+        st.text_input("Email"),
+        st.text_input("Choose a Username"),
+        st.text_input("Password", type="password"),
+        st.text_input("Confirm Password", type="password"),
+    )
 
     if st.button("🔑 Register"):
         if new_username in config["credentials"]["usernames"]:
@@ -204,7 +221,8 @@ with tab2:
         elif new_password != confirm_password:
             st.error("⚠ Passwords do not match!")
         else:
-            hashed_password = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-            config["credentials"]["usernames"][new_username] = {"email": new_email, "name": new_name, "password": hashed_password}
+            config["credentials"]["usernames"][new_username] = {
+                "email": new_email, "name": new_name, "password": bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode(),
+            }
             save_config(config)
-            st.success(f"✅ {new_name} registered successfully! Please log in.")
+            st.success(f"✅ {new_name} registered! Please log in.")
