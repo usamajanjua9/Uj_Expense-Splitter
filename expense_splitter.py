@@ -15,29 +15,33 @@ CONFIG_FILE = "config.yaml"
 
 # 🔹 Function to load authentication config, create default if missing
 def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        default_config = {
-            "credentials": {
-                "usernames": {
-                    "admin": {
-                        "name": "Admin",
-                        "email": "admin@example.com",
-                        "password": bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode(),
+    try:
+        if not os.path.exists(CONFIG_FILE):
+            default_config = {
+                "credentials": {
+                    "usernames": {
+                        "admin": {
+                            "name": "Admin",
+                            "email": "admin@example.com",
+                            "password": bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode(),
+                        }
                     }
-                }
-            },
-            "cookie": {
-                "expiry_days": 30,
-                "key": "some_random_key",
-                "name": "expense_splitter_auth",
-            },
-            "preauthorized": {"emails": ["admin@example.com"]},
-        }
-        with open(CONFIG_FILE, "w") as file:
-            yaml.dump(default_config, file)
+                },
+                "cookie": {
+                    "expiry_days": 30,
+                    "key": "some_random_key",
+                    "name": "expense_splitter_auth",
+                },
+                "preauthorized": {"emails": ["admin@example.com"]},
+            }
+            with open(CONFIG_FILE, "w") as file:
+                yaml.dump(default_config, file)
 
-    with open(CONFIG_FILE, "r") as file:
-        return yaml.safe_load(file)
+        with open(CONFIG_FILE, "r") as file:
+            return yaml.safe_load(file)
+    except yaml.YAMLError as e:
+        st.error(f"Error loading configuration file: {e}")
+        return {}
 
 # 🔹 Function to save updated config
 def save_config(config):
@@ -66,11 +70,13 @@ tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
 # --------- LOGIN ---------
 with tab1:
-    name, authentication_status, username = authenticator.login("Login", "unrendered")  
+    name, authentication_status, username = authenticator.login("Login", "main")  
 
     if authentication_status:
         st.sidebar.title(f"Welcome, {name}")  # Sidebar welcome message
-        authenticator.logout("Logout", "sidebar")  # Logout button
+        if st.sidebar.button("Logout"):
+            authenticator.logout("Logout", "sidebar")
+            st.experimental_rerun()
 
         # 🔹 Private file for each user
         file_name = f"expenses_{username}.csv"
@@ -78,8 +84,12 @@ with tab1:
         # 🔹 Function to load expenses
         def load_expenses():
             if os.path.exists(file_name):
-                df = pd.read_csv(file_name)
-                return dict(zip(df["Participant"], df["Amount"]))
+                try:
+                    df = pd.read_csv(file_name)
+                    return dict(zip(df["Participant"], df["Amount"]))
+                except Exception as e:
+                    st.error(f"Error loading expenses: {e}")
+                    return {}
             return {}
 
         # 🔹 Function to save expenses
@@ -95,7 +105,9 @@ with tab1:
                 os.remove(file_name)
             st.session_state.clear()
 
-        expenses = load_expenses()
+        if "expenses" not in st.session_state:
+            st.session_state["expenses"] = load_expenses()
+        expenses = st.session_state["expenses"]
 
         # -------------------------------------------
         # 📌 Expense Splitter App UI
@@ -125,6 +137,7 @@ with tab1:
                 if new_participant and new_participant not in expenses:
                     expenses[new_participant] = 0
                     save_expenses(expenses)
+                    st.session_state["expenses"] = expenses
                     st.success(f"✅ {new_participant} added!")
                 else:
                     st.warning("⚠ Enter a unique name!")
@@ -133,6 +146,7 @@ with tab1:
                 if new_participant in expenses:
                     del expenses[new_participant]
                     save_expenses(expenses)
+                    st.session_state["expenses"] = expenses
                     st.error(f"❌ {new_participant} removed!")
                 else:
                     st.warning("⚠ Participant not found!")
@@ -162,16 +176,14 @@ with tab1:
                             for person in expenses:
                                 balances[person] -= share_per_person
                             balances[payer] += amount
-
                         else:
                             try:
                                 shares = list(map(float, split_values.split(",")))
-                                if len(shares) == len(expenses) and sum(shares) == 100:
-                                    for i, person in enumerate(expenses):
-                                        balances[person] -= (amount * (shares[i] / 100))
-                                    balances[payer] += amount
-                                else:
+                                if len(shares) != len(expenses) or sum(shares) != 100:
                                     raise ValueError
+                                for i, person in enumerate(expenses):
+                                    balances[person] -= (amount * (shares[i] / 100))
+                                balances[payer] += amount
                             except:
                                 st.error("⚠ Invalid shares. Must sum to 100.")
                                 st.stop()
@@ -180,6 +192,7 @@ with tab1:
                             expenses[person] += balances[person]
 
                         save_expenses(expenses)
+                        st.session_state["expenses"] = expenses
                         st.success(f"💰 {payer} paid {amount:.2f} for {description}")
                     else:
                         st.warning("⚠ Enter a valid amount!")
