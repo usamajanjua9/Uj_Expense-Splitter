@@ -34,7 +34,7 @@ tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 # ------------------------- LOGIN TAB -------------------------
 with tab1:
     # 📌 Display login widget
-    name, authentication_status, username = authenticator.login("Login", "main")
+    name, authentication_status, username = authenticator.login("Login", location="main")
 
     # 📌 If authentication is successful
     if authentication_status:
