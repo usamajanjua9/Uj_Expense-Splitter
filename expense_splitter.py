@@ -149,7 +149,15 @@ if st.session_state.get("authenticated", False):
     # -------------------------------------------
 
     st.title("💰 Expense Splitter (Private Data)")
-
+    
+# Hide Streamlit's extra UI elements
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
     # 🔹 App Navigation Tabs
     tab_home, tab_participants, tab_add_expense, tab_summary = st.tabs(
         ["🏠 Home", "👥 Participants", "💵 Add Expense", "📊 Summary"]
