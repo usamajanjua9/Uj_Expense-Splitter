@@ -66,7 +66,7 @@ tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
 # --------- LOGIN ---------
 with tab1:
-    name, authentication_status, username = authenticator.login("Login", "main")
+    name, authentication_status, username = authenticator.login("Login", "sidebar")  
 
     if authentication_status:
         st.sidebar.title(f"Welcome, {name}")  # Sidebar welcome message
