@@ -3,6 +3,8 @@
 ```md
 # 💰 Expense Splitter App (Mobile-Friendly) 📱
 
+[Run](https://ujexpense.streamlit.app/)!**
+
 🚀 **A simple and easy-to-use Streamlit app to split expenses among friends!**  
 💡 Add participants, track expenses, and view fair splits effortlessly.
 
